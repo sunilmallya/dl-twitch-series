@@ -41,21 +41,20 @@ class BaseRNNRegressor(mx.gluon.Block):
     #@override 
     def forward(self, inp, hidden):
         rnn_out, hidden = self.net(inp, hidden)
-        #simplify
         logits = self.output(rnn_out.reshape((-1, self.rnn_size)))
         return logits, hidden
         
     def detach(self, arrs):
         return [arr.detach() for arr in arrs]
 
-    def compile_model(self, optimizer='adam', lr=1E-3):
+    def compile_model(self, optimizer='adam', lr=1E-3, loss=None):
         self.collect_params().initialize(mx.init.Xavier(), ctx=self.ctx)
-        self.loss = mx.gluon.loss.L1Loss()
+        self.loss = mx.gluon.loss.L1Loss() if loss is None else loss
         self.optimizer = mx.gluon.Trainer(self.collect_params(), 
                                     optimizer, {'learning_rate': lr})
 
-
     def evaluate_accuracy(self, data_iterator, metric='mae', iter_type='mxiter'):
+        # TODO: handle multiple metrics   
         met = mx.metric.MAE()
         for i, batch in enumerate(data_iterator):
             data, label = get_data(batch, iter_type)
@@ -114,8 +113,6 @@ class BaseRNNRegressor(mx.gluon.Block):
                 else:
                     moving_loss = .99 * moving_loss + .01 * mx.nd.mean(loss).asscalar()
             train_loss.append(moving_loss)
-            # TODO: add prediction?
-            
             test_err = self.evaluate_accuracy(test_iter, iter_type=iter_type)
             val_loss.append(test_err[1])
             print("Epoch %s. Loss: %.10f Test MAE: %s" % (e, moving_loss, test_err))
